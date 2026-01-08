@@ -7,22 +7,23 @@ public class Rotate : MonoBehaviour
 
     Vector3 Rotation;
 
-    void Awake()
-    {
-        Rotation = transform.eulerAngles;
-    }
+    void Awake(){ Rotation = transform.eulerAngles; }
 
+    Car Car;
+
+    private void Start(){ Car = Anchor.GetComponent<Car>(); }
+    
     Vector3 Velocity;
 
     void LateUpdate()
     {
-        if (!Anchor) return;
+        Vector3 From = transform.eulerAngles;
+        Vector3 To = Quaternion.LookRotation(Car.Velocity,
+            new Vector3(0, 1, 0)).eulerAngles + Rotation;
         
-        Vector3 OnAnchorRotation = Rotation + Anchor.eulerAngles;
-        
-        float X = Mathf.SmoothDampAngle(transform.eulerAngles.x, OnAnchorRotation.x, ref Velocity.x, SmoothTime);
-        float Y = Mathf.SmoothDampAngle(transform.eulerAngles.y, OnAnchorRotation.y, ref Velocity.y, SmoothTime);
-        float Z = Mathf.SmoothDampAngle(transform.eulerAngles.z, OnAnchorRotation.z, ref Velocity.z, SmoothTime);
+        float X = Mathf.SmoothDampAngle(From.x, To.x, ref Velocity.x, SmoothTime);
+        float Y = Mathf.SmoothDampAngle(From.y, To.y, ref Velocity.y, SmoothTime);
+        float Z = Mathf.SmoothDampAngle(From.z, To.z, ref Velocity.z, SmoothTime);
         
         transform.rotation = Quaternion.Euler(X, Y, Z);
     }
