@@ -21,6 +21,8 @@ public class Car : MonoBehaviour
     public float GripSpeed = 1;
     
     [HideInInspector] public Vector3 Velocity;
+
+    Transform Camera;
     
     Vector3 PPosition;
     Vector3 CPosition;
@@ -32,8 +34,12 @@ public class Car : MonoBehaviour
     float Length;
     float Z;
     
+    Vector3[] WheelRelativePositionGroup;
+    
     void Awake()
     {
+        Camera = UnityEngine.Camera.main.transform;
+        
         CPosition = transform.position;
         CRotation = transform.rotation;
         
@@ -43,6 +49,12 @@ public class Car : MonoBehaviour
         Length = Vector3.Distance(WheelGroup[0].transform.position, WheelGroup[2].transform.position);
         
         Z = -Length / 2;
+        
+        WheelRelativePositionGroup = new Vector3[WheelGroup.Length];
+        for(int i = 0; i < WheelGroup.Length; i++)
+        {
+            WheelRelativePositionGroup[i] = WheelGroup[i].transform.position - transform.position;
+        }
     }
     
     void OnEnable(){ Vertical.action.Enable(); Horizontal.action.Enable(); }
@@ -101,20 +113,41 @@ public class Car : MonoBehaviour
         
         Debug.DrawRay(CPosition, Velocity * 5, new Color(0, 1, 0));
         Debug.DrawRay(CPosition, CRotation * new Vector3(0, 0, 1) * 5, new Color(1, 0, 0));
-
+        
         /* [8] */
-        List<Vector3> HitGroup = new List<Vector3>();
+        Vector3[] HitGroup = new Vector3[WheelGroup.Length + 1];
+
+        Vector3 From = CPosition + new Vector3(0, WheelRadius, 0);
+        Vector3 To = CRotation * new Vector3(0, -1, 0);
+        
+        float Range = WheelRadius + .05f;
+        
+        Vector3 Hit = this.Hit(From, To, Range);
+        if (Hit != new Vector3()) HitGroup[WheelGroup.Length] = Hit;
         
         for (int i = 0; i < WheelGroup.Length; i++)
         {
-            if (Physics.Raycast(WheelGroup[i].transform.position, new Vector3(
-                    0, -1, 0), out RaycastHit Hit, 10))
-            {
-                HitGroup.Add(Hit.point);
-            }
+            From = CPosition + CRotation * WheelRelativePositionGroup[i];
+            
+            Hit = this.Hit(From, To, Range);
+            if (Hit != new Vector3()) HitGroup[i] = Hit;
+            else HitGroup[i] = From + To * Range;
         }
+
+        CPosition = (HitGroup[0] + HitGroup[1] + HitGroup[2] + HitGroup[3]) / 4;
+
+        Vector3 F = (HitGroup[0] + HitGroup[1]) / 2;
+        Vector3 B = (HitGroup[2] + HitGroup[3]) / 2;
+        Vector3 L = (HitGroup[0] + HitGroup[2]) / 2;
+        Vector3 R = (HitGroup[1] + HitGroup[3]) / 2;
+            
+        Vector3 Up = Vector3.Normalize(Vector3.Cross(
+            Vector3.Normalize(F - B), Vector3.Normalize(R - L)));
+        
+        CRotation = Quaternion.LookRotation(Vector3.Normalize(Vector3.ProjectOnPlane(
+            CRotation * new Vector3(0, 0, 1), Up)), Up);
     }
-    
+
     float SAngle;
 
     void Update()
@@ -149,34 +182,33 @@ public class Car : MonoBehaviour
         WheelGroup[3].transform.localRotation = Quaternion.Euler(SAngle, 0, 0);
     }
     
-    void Draw(Vector3 Point, float Size, Color Color)
+    Vector3 Hit(Vector3 From, Vector3 To, float Range)
     {
-        Transform Camera = UnityEngine.Camera.main.transform;
+        RaycastHit Hit;
         
+        if (Physics.Raycast(From, To, out Hit, Range))
+        {
+            Draw(From, To, Range, new Color(1, 1, 1));
+            Draw(Hit.point, .125f, new Color(1, 1, 1));
+        }
+
+        return Hit.point;
+    }
+    
+    void Draw(Vector3 Point, float Length, Color Color)
+    {
         Vector3 L = Vector3.Normalize(-Camera.right + Camera.up);
         Vector3 R = Vector3.Normalize(Camera.right + Camera.up);
 
-        Debug.DrawRay(Point - L * Size / 2, L * Size, Color);
-        Debug.DrawRay(Point - R * Size / 2, R * Size, Color);
+        Debug.DrawRay(Point - L * Length / 2, L * Length, Color);
+        Debug.DrawRay(Point - R * Length / 2, R * Length, Color);
     }
+
+    void Draw(Vector3 From, Vector3 To, float Range, Color Color)
+        { Debug.DrawRay(From, To * Range, Color); }
     
-    float Time()
-    {
-        return UnityEngine.Time.time;
-    }
-    
-    float DTime()
-    {
-        return UnityEngine.Time.deltaTime;
-    }
-    
-    float FTime()
-    {
-        return UnityEngine.Time.fixedTime;
-    }
-    
-    float FDTime()
-    {
-        return UnityEngine.Time.fixedDeltaTime;
-    }
+    float Time(){ return UnityEngine.Time.time; }
+    float DTime(){ return UnityEngine.Time.deltaTime; }
+    float FTime(){ return UnityEngine.Time.fixedTime; }
+    float FDTime(){ return UnityEngine.Time.fixedDeltaTime; }
 }
